@@ -1,0 +1,33 @@
+{
+  "name": "traffic-intelligence-framework",
+  "version": "1.0.0",
+  "description": "Automated traffic quality assessment framework for digital media campaign fulfillment",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/index.ts",
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "demo": "ts-node src/simulation/runDemo.ts",
+    "test": "jest --verbose",
+    "test:coverage": "jest --coverage",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": ["traffic", "quality", "experiment", "media", "campaign"],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.0",
+    "uuid": "^10.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.0",
+    "ts-node": "^10.9.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.6.0"
+  }
+}

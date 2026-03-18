@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Traffic Intelligence Framework — Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-2: #232733;
+      --border: #2e3344;
+      --text: #e1e4ed;
+      --text-dim: #8b90a0;
+      --accent: #6c63ff;
+      --accent-light: #8b83ff;
+      --green: #34d399;
+      --green-bg: rgba(52, 211, 153, 0.12);
+      --yellow: #fbbf24;
+      --yellow-bg: rgba(251, 191, 36, 0.12);
+      --orange: #fb923c;
+      --orange-bg: rgba(251, 146, 60, 0.12);
+      --red: #f87171;
+      --red-bg: rgba(248, 113, 113, 0.12);
+      --blue: #60a5fa;
+      --blue-bg: rgba(96, 165, 250, 0.12);
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ---- Layout ---- */
+    .app { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 260px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    .sidebar-logo {
+      padding: 0 24px 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .sidebar-logo h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent-light);
+      letter-spacing: -0.3px;
+    }
+    .sidebar-logo p {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 24px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text-dim);
+      transition: all 0.15s;
+      border-left: 3px solid transparent;
+    }
+    .nav-item:hover { background: var(--surface-2); color: var(--text); }
+    .nav-item.active {
+      background: var(--surface-2);
+      color: var(--accent-light);
+      border-left-color: var(--accent);
+      font-weight: 600;
+    }
+    .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+    .main {
+      margin-left: 260px;
+      flex: 1;
+      padding: 32px;
+      max-width: 1280px;
+    }
+
+    .page-header {
+      margin-bottom: 28px;
+    }
+    .page-header h2 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .page-header p {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    /* ---- Cards & Grids ---- */
+    .grid { display: grid; gap: 20px; }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-1 { grid-template-columns: 1fr; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+
+    /* ---- Metric cards ---- */
+    .metric-value {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+    .metric-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 6px;
+    }
+    .metric-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-top: 8px;
+    }
+    .badge-green { background: var(--green-bg); color: var(--green); }
+    .badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+    .badge-red { background: var(--red-bg); color: var(--red); }
+    .badge-blue { background: var(--blue-bg); color: var(--blue); }
+
+    /* ---- Tables ---- */
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-dim);
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    tr:hover td { background: var(--surface-2); }
+
+    /* ---- Score bars ---- */
+    .score-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: var(--surface-2);
+      overflow: hidden;
+      width: 100px;
+    }
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+
+    /* ---- Action items ---- */
+    .action-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px;
+      background: var(--surface-2);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      border-left: 4px solid transparent;
+    }
+    .action-item.critical { border-left-color: var(--red); background: var(--red-bg); }
+    .action-item.high { border-left-color: var(--orange); background: var(--orange-bg); }
+    .action-item.medium { border-left-color: var(--yellow); background: var(--yellow-bg); }
+    .action-item .action-priority {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .action-item .action-text {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .action-item .action-vendor {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ---- Recommendation badges ---- */
+    .rec-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .rec-increase { background: var(--green-bg); color: var(--green); }
+    .rec-maintain { background: var(--blue-bg); color: var(--blue); }
+    .rec-decrease { background: var(--yellow-bg); color: var(--yellow); }
+    .rec-pause { background: var(--red-bg); color: var(--red); }
+    .rec-review { background: var(--orange-bg); color: var(--orange); }
+
+    /* ---- Pipeline visualization ---- */
+    .pipeline {
+      display: flex;
+      gap: 0;
+      align-items: stretch;
+      overflow-x: auto;
+      padding: 10px 0;
+    }
+    .pipeline-stage {
+      flex: 1;
+      min-width: 140px;
+      text-align: center;
+      padding: 20px 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      position: relative;
+    }
+    .pipeline-stage:first-child { border-radius: 10px 0 0 10px; }
+    .pipeline-stage:last-child { border-radius: 0 10px 10px 0; }
+    .pipeline-stage .stage-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    .pipeline-stage .stage-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .pipeline-stage .stage-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+    .pipeline-arrow {
+      display: flex;
+      align-items: center;
+      font-size: 18px;
+      color: var(--accent);
+      padding: 0 2px;
+      flex-shrink: 0;
+    }
+
+    /* ---- Chart containers ---- */
+    .chart-container {
+      position: relative;
+      width: 100%;
+      height: 300px;
+    }
+    .chart-container-sm {
+      position: relative;
+      width: 100%;
+      height: 220px;
+    }
+
+    /* ---- Loading ---- */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+    .spinner {
+      width: 24px; height: 24px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- Section ---- */
+    .section { display: none; }
+    .section.active { display: block; }
+    .section-gap { margin-top: 24px; }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 1100px) {
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-3 { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 16px; }
+      .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* ---- Experiment cards ---- */
+    .exp-card {
+      padding: 16px;
+      background: var(--surface-2);
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    .exp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .exp-name { font-weight: 700; font-size: 14px; }
+    .exp-status {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+    .status-running { background: var(--green-bg); color: var(--green); }
+    .status-completed { background: var(--blue-bg); color: var(--blue); }
+    .status-scheduled { background: var(--yellow-bg); color: var(--yellow); }
+    .status-stopped { background: var(--red-bg); color: var(--red); }
+
+    /* Data handling cards */
+    .data-card {
+      padding: 20px;
+      background: var(--surface-2);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .data-card h4 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--accent-light);
+    }
+    .data-card p {
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+    .data-card code {
+      font-family: 'SF Mono', Consolas, monospace;
+      font-size: 11px;
+      background: var(--bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--green);
+    }
+    .data-card ul {
+      list-style: none;
+      padding: 0;
+      margin-top: 8px;
+    }
+    .data-card li {
+      font-size: 12px;
+      color: var(--text-dim);
+      padding: 4px 0;
+      padding-left: 16px;
+      position: relative;
+    }
+    .data-card li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+
+    .confidence-bar {
+      display: inline-block;
+      width: 60px;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--surface-2);
+      overflow: hidden;
+      vertical-align: middle;
+    }
+    .confidence-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="sidebar-logo">
+        <h1>Traffic Intelligence</h1>
+        <p>Campaign Fulfillment POC</p>
+      </div>
+      <div class="nav-item active" data-section="overview">
+        <span class="icon">📊</span> Overview
+      </div>
+      <div class="nav-item" data-section="vendors">
+        <span class="icon">🏢</span> Vendor Rankings
+      </div>
+      <div class="nav-item" data-section="fraud">
+        <span class="icon">🛡️</span> Fraud Detection
+      </div>
+      <div class="nav-item" data-section="experiments">
+        <span class="icon">🧪</span> Experiments
+      </div>
+      <div class="nav-item" data-section="budget">
+        <span class="icon">💰</span> Budget Allocation
+      </div>
+      <div class="nav-item" data-section="pipeline">
+        <span class="icon">⚙️</span> Data Pipeline
+      </div>
+      <div class="nav-item" data-section="events">
+        <span class="icon">📋</span> Event Handling
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main">
+
+      <!-- ============ OVERVIEW ============ -->
+      <div id="sec-overview" class="section active">
+        <div class="page-header">
+          <h2>System Overview</h2>
+          <p>Real-time traffic intelligence metrics across all vendors and campaigns</p>
+        </div>
+
+        <div id="metrics-grid" class="grid grid-4">
+          <div class="card"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+        </div>
+
+        <div class="section-gap grid grid-2">
+          <div class="card">
+            <div class="card-title">Vendor Quality Distribution</div>
+            <div class="chart-container"><canvas id="chart-quality-dist"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Fraud Risk Overview</div>
+            <div class="chart-container"><canvas id="chart-fraud-overview"></canvas></div>
+          </div>
+        </div>
+
+        <div class="section-gap">
+          <div class="card">
+            <div class="card-title">Action Items for Media Buying Team</div>
+            <div id="action-items-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ VENDORS ============ -->
+      <div id="sec-vendors" class="section">
+        <div class="page-header">
+          <h2>Vendor Rankings</h2>
+          <p>All vendors ranked by Bayesian composite quality score</p>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Composite Score Ranking</div>
+          <div class="chart-container"><canvas id="chart-vendor-ranking"></canvas></div>
+        </div>
+
+        <div class="section-gap card">
+          <div class="card-title">Detailed Vendor Scores</div>
+          <div class="table-wrap">
+            <table id="vendor-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Vendor</th>
+                  <th>Composite</th>
+                  <th>Engagement</th>
+                  <th>Fraud Risk</th>
+                  <th>Confidence</th>
+                  <th>Sample Size</th>
+                </tr>
+              </thead>
+              <tbody id="vendor-table-body">
+                <tr><td colspan="7"><div class="loading"><div class="spinner"></div> Loading...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section-gap card">
+          <div class="card-title">Top 20% Vendors (Top Tier)</div>
+          <div id="top-tier-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- ============ FRAUD ============ -->
+      <div id="sec-fraud" class="section">
+        <div class="page-header">
+          <h2>Fraud Detection</h2>
+          <p>Automated detection of non-human and fraudulent traffic patterns</p>
+        </div>
+
+        <div class="grid grid-3" id="fraud-metrics">
+          <div class="card"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+
+        <div class="section-gap card">
+          <div class="card-title">Fraud Risk by Vendor</div>
+          <div class="chart-container"><canvas id="chart-fraud-bar"></canvas></div>
+        </div>
+
+        <div class="section-gap card">
+          <div class="card-title">Detection Heuristics</div>
+          <div class="grid grid-3" style="margin-top: 12px;">
+            <div class="data-card">
+              <h4>Bot Signature Detection</h4>
+              <p>Identifies known bot user-agent strings (Googlebot, python-requests, curl, etc.) in incoming traffic.</p>
+              <ul><li>Weight: 25% of fraud score</li><li>Signal: <code>knownBotSignature</code></li></ul>
+            </div>
+            <div class="data-card">
+              <h4>Click Velocity Analysis</h4>
+              <p>Flags clicks with redirect latency &lt; 100ms. Real users on real devices have measurable network hop time.</p>
+              <ul><li>Weight: 20% of fraud score</li><li>Signal: <code>suspiciouslyFastRate</code></li></ul>
+            </div>
+            <div class="data-card">
+              <h4>IP Concentration</h4>
+              <p>Measures how concentrated traffic is across IPs. Botnet/proxy abuse funnels through few IPs.</p>
+              <ul><li>Weight: 15% of fraud score</li><li>Signal: <code>ipConcentrationRate</code></li></ul>
+            </div>
+            <div class="data-card">
+              <h4>IP Diversity Ratio</h4>
+              <p>Unique IPs ÷ total clicks. Low diversity indicates traffic from a small pool of machines.</p>
+              <ul><li>Weight: 15% of fraud score</li><li>Signal: <code>ipDiversityRatio</code></li></ul>
+            </div>
+            <div class="data-card">
+              <h4>Temporal Uniformity</h4>
+              <p>Real traffic peaks during business hours. Perfectly uniform hourly distribution is suspicious.</p>
+              <ul><li>Weight: 10% of fraud score</li><li>Signal: <code>temporalEntropy</code></li></ul>
+            </div>
+            <div class="data-card">
+              <h4>Click Timing Variance</h4>
+              <p>Humans click at irregular intervals (high CV). Bots click with clockwork regularity (low CV).</p>
+              <ul><li>Weight: 10% of fraud score</li><li>Signal: <code>clickTimingVariance</code></li></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ EXPERIMENTS ============ -->
+      <div id="sec-experiments" class="section">
+        <div class="page-header">
+          <h2>Experiment Engine</h2>
+          <p>Randomized traffic tests comparing vendor quality head-to-head</p>
+        </div>
+
+        <div id="experiment-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+
+        <div class="section-gap card">
+          <div class="card-title">Experiment Results Comparison</div>
+          <div class="chart-container"><canvas id="chart-experiment"></canvas></div>
+        </div>
+
+        <div class="section-gap card">
+          <div class="card-title">How Experiments Work</div>
+          <div class="grid grid-2" style="margin-top:12px;">
+            <div class="data-card">
+              <h4>Non-Disruptive Design</h4>
+              <p>Only <code>10%</code> of campaign traffic is diverted to experiments. The remaining 90% flows normally, ensuring live campaigns are never disrupted.</p>
+            </div>
+            <div class="data-card">
+              <h4>Sequential Testing</h4>
+              <p>Results are evaluated after each batch. If statistical significance (p &lt; 0.05) is reached early, the experiment auto-completes — saving budget.</p>
+            </div>
+            <div class="data-card">
+              <h4>Statistical Rigor</h4>
+              <p>Uses two-proportion z-tests with Wilson confidence intervals. Each vendor's engagement rate is compared against the pooled average.</p>
+            </div>
+            <div class="data-card">
+              <h4>Auto-Scheduling</h4>
+              <p>The engine prioritizes vendors with lowest confidence scores, ensuring under-tested vendors get evaluated first while respecting concurrency limits.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ BUDGET ============ -->
+      <div id="sec-budget" class="section">
+        <div class="page-header">
+          <h2>Budget Allocation</h2>
+          <p>Data-driven recommendations for the media buying team</p>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="card-title">Recommended Budget Distribution</div>
+            <div class="chart-container"><canvas id="chart-budget-donut"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Current vs Recommended Allocation</div>
+            <div class="chart-container"><canvas id="chart-budget-compare"></canvas></div>
+          </div>
+        </div>
+
+        <div class="section-gap card">
+          <div class="card-title">Vendor Recommendations</div>
+          <div class="table-wrap">
+            <table id="budget-table">
+              <thead>
+                <tr>
+                  <th>Vendor</th>
+                  <th>Action</th>
+                  <th>Score</th>
+                  <th>Current %</th>
+                  <th>Recommended %</th>
+                  <th>Confidence</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody id="budget-table-body">
+                <tr><td colspan="7"><div class="loading"><div class="spinner"></div> Loading...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ PIPELINE ============ -->
+      <div id="sec-pipeline" class="section">
+        <div class="page-header">
+          <h2>Data Pipeline</h2>
+          <p>End-to-end flow from raw traffic events to actionable recommendations</p>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Processing Pipeline</div>
+          <div class="pipeline">
+            <div class="pipeline-stage">
+              <div class="stage-icon">📡</div>
+              <div class="stage-title">Collect</div>
+              <div class="stage-desc">Raw TrafficEvents captured at redirect layer (IP, UA, device, geo, latency)</div>
+            </div>
+            <div class="pipeline-arrow">▶</div>
+            <div class="pipeline-stage">
+              <div class="stage-icon">🔬</div>
+              <div class="stage-title">Analyze</div>
+              <div class="stage-desc">SignalCollector aggregates events into QualitySignals per vendor per window</div>
+            </div>
+            <div class="pipeline-arrow">▶</div>
+            <div class="pipeline-stage">
+              <div class="stage-icon">🛡️</div>
+              <div class="stage-title">Detect</div>
+              <div class="stage-desc">FraudDetector + EngagementProxy evaluate fraud risk and engagement likelihood</div>
+            </div>
+            <div class="pipeline-arrow">▶</div>
+            <div class="pipeline-stage">
+              <div class="stage-icon">📈</div>
+              <div class="stage-title">Score</div>
+              <div class="stage-desc">VendorScorer updates Bayesian posteriors — composite score with confidence</div>
+            </div>
+            <div class="pipeline-arrow">▶</div>
+            <div class="pipeline-stage">
+              <div class="stage-icon">🧪</div>
+              <div class="stage-title">Experiment</div>
+              <div class="stage-desc">A/B tests with z-tests for statistical significance between vendors</div>
+            </div>
+            <div class="pipeline-arrow">▶</div>
+            <div class="pipeline-stage">
+              <div class="stage-icon">💡</div>
+              <div class="stage-title">Recommend</div>
+              <div class="stage-desc">BudgetAllocator generates allocation plans with plain-language guidance</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-gap grid grid-2">
+          <div class="card">
+            <div class="card-title">Thompson Sampling — Traffic Allocation</div>
+            <div class="data-card" style="border:none;background:transparent;padding:0;">
+              <p style="margin-bottom:12px;">Traffic allocation uses a <strong>multi-armed bandit</strong> algorithm that balances exploration vs exploitation:</p>
+              <ul>
+                <li><strong>Explore</strong>: uncertain vendors get sampled from wide Beta posteriors — they might be good</li>
+                <li><strong>Exploit</strong>: known-good vendors have narrow posteriors centered high — they get more traffic</li>
+                <li><strong>Adapt</strong>: when vendor quality drops, the posterior shifts and allocation decreases automatically</li>
+                <li><strong>No manual tuning</strong>: the algorithm is provably near-optimal for regret minimization</li>
+              </ul>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Bayesian Scoring Model</div>
+            <div class="data-card" style="border:none;background:transparent;padding:0;">
+              <p style="margin-bottom:12px;">Each vendor's quality is modeled as a <strong>Beta(α, β)</strong> distribution:</p>
+              <ul>
+                <li><strong>Prior</strong>: Beta(2, 2) — weak prior expressing initial ignorance</li>
+                <li><strong>Update</strong>: α += successes, β += failures (from engagement proxy)</li>
+                <li><strong>Decay</strong>: 0.95× per cycle — older data fades, enabling adaptation to vendor changes</li>
+                <li><strong>Confidence</strong>: log₁₀(sampleSize)/3 — naturally increases with more data</li>
+                <li><strong>Ranking</strong>: compositeScore × confidence — prevents small-sample vendors from ranking too high</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-gap card">
+          <div class="card-title">Thompson Sampling Allocation Weights</div>
+          <div class="chart-container"><canvas id="chart-thompson"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ============ EVENT HANDLING ============ -->
+      <div id="sec-events" class="section">
+        <div class="page-header">
+          <h2>Event & Data Handling</h2>
+          <p>How the system processes traffic events and handles edge cases</p>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="card-title">Event Lifecycle</div>
+            <div class="data-card" style="border:none;background:transparent;padding:0;">
+              <p style="margin-bottom: 12px;">Each incoming click goes through a structured processing pipeline:</p>
+              <ul>
+                <li><strong>Ingestion</strong>: TrafficEvent captured with full metadata at redirect layer</li>
+                <li><strong>Enrichment</strong>: IP lookup, device detection, geo resolution, bot signature check</li>
+                <li><strong>Experiment assignment</strong>: probabilistic assignment to running experiments (10% allocation)</li>
+                <li><strong>Signal aggregation</strong>: events are batched into time-windowed QualitySignals per vendor</li>
+                <li><strong>Score update</strong>: Bayesian posterior is updated with new evidence</li>
+                <li><strong>Redirect</strong>: visitor is forwarded to the landing page (VDP) with no delay</li>
+              </ul>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Edge Cases Handled</div>
+            <div class="data-card" style="border:none;background:transparent;padding:0;">
+              <ul>
+                <li><strong>New vendor (cold start)</strong>: starts with Beta(2,2) prior — wide uncertainty, gets exploration traffic via Thompson Sampling</li>
+                <li><strong>Vendor behavior change</strong>: decay factor (0.95) ensures old data fades; score adapts within 3-5 cycles</li>
+                <li><strong>Burst traffic</strong>: temporal entropy detection flags sudden concentrated bursts as anomalous</li>
+                <li><strong>IP spoofing/rotation</strong>: IP diversity ratio + rapid-fire cluster detection catches coordinated bot pools</li>
+                <li><strong>Zero-click window</strong>: empty signal windows produce neutral scores — no false penalization</li>
+                <li><strong>Small sample sizes</strong>: Wilson confidence intervals + Bayesian confidence prevent premature conclusions</li>
+                <li><strong>Concurrent experiments</strong>: max concurrency limit prevents over-diversion of live traffic</li>
+                <li><strong>Geo mismatch</strong>: automotive vertical relies on local geo — out-of-area traffic is heavily penalized in scoring</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-gap grid grid-3">
+          <div class="card">
+            <div class="card-title">Data Volume Strategy</div>
+            <div class="data-card" style="border:none;background:transparent;padding:0;">
+              <h4>Windowed Aggregation</h4>
+              <p>Raw events are aggregated into time-windowed signals (hourly/daily). This reduces storage from O(events) to O(vendors × windows) while preserving all quality information needed for scoring.</p>
+              <ul>
+                <li>Raw events: retained 7 days</li>
+                <li>Quality signals: retained 90 days</li>
+                <li>Vendor scores: retained indefinitely</li>
+              </ul>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Failure Modes</div>
+            <div class="data-card" style="border:none;background:transparent;padding:0;">
+              <h4>Graceful Degradation</h4>
+              <p>The system is designed to fail safely at every layer:</p>
+              <ul>
+                <li>Missing geo data → neutral geo score (not penalized)</li>
+                <li>Scoring service down → traffic continues via last-known allocation weights</li>
+                <li>Experiment engine down → all traffic uses production routing</li>
+                <li>Vendor goes offline → auto-detected via zero-click window</li>
+              </ul>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Production Scale Path</div>
+            <div class="data-card" style="border:none;background:transparent;padding:0;">
+              <h4>From POC to Production</h4>
+              <p>The in-memory store is backed by a clean interface. Production swap:</p>
+              <ul>
+                <li>Events → TimescaleDB (time-series optimized)</li>
+                <li>Scores → PostgreSQL (relational)</li>
+                <li>Real-time → Kafka + Flink streaming</li>
+                <li>API → Horizontal scaling behind load balancer</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-gap card">
+          <div class="card-title">Traffic Event Schema</div>
+          <div style="background: var(--bg); border-radius: 8px; padding: 16px; font-family: 'SF Mono', Consolas, monospace; font-size: 12px; line-height: 1.7; overflow-x: auto;">
+            <pre style="color: var(--text-dim); margin: 0;"><span style="color: var(--accent-light);">interface</span> <span style="color: var(--green);">TrafficEvent</span> {
+  id:                    <span style="color: var(--blue);">string</span>        <span style="color: #555;">// unique event identifier</span>
+  vendorId:              <span style="color: var(--blue);">string</span>        <span style="color: #555;">// which vendor sent this traffic</span>
+  campaignId:            <span style="color: var(--blue);">string</span>        <span style="color: #555;">// which campaign it's for</span>
+  timestamp:             <span style="color: var(--blue);">Date</span>          <span style="color: #555;">// when the click occurred</span>
+  experimentId?:         <span style="color: var(--blue);">string</span>        <span style="color: #555;">// assigned experiment (if any)</span>
+  ip:                    <span style="color: var(--blue);">string</span>        <span style="color: #555;">// visitor IP address</span>
+  userAgent:             <span style="color: var(--blue);">string</span>        <span style="color: #555;">// browser/bot user-agent</span>
+  deviceType:            <span style="color: var(--blue);">DeviceType</span>    <span style="color: #555;">// mobile | desktop | tablet | unknown</span>
+  geo:                   <span style="color: var(--blue);">GeoInfo</span>       <span style="color: #555;">// country, region, city, zip</span>
+  referrer:              <span style="color: var(--blue);">string</span>        <span style="color: #555;">// HTTP referrer header</span>
+  redirectLatencyMs:     <span style="color: var(--blue);">number</span>        <span style="color: #555;">// ms between click and redirect</span>
+  knownBotSignature:     <span style="color: var(--blue);">boolean</span>       <span style="color: #555;">// matched known bot UA pattern</span>
+  repeatIp:              <span style="color: var(--blue);">boolean</span>       <span style="color: #555;">// IP seen before in recent window</span>
+  timeSinceLastClickFromIp: <span style="color: var(--blue);">number|null</span> <span style="color: #555;">// seconds since last click from same IP</span>
+}</pre>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    // =========================================================================
+    // API Client
+    // =========================================================================
+    const API = '';
+
+    async function fetchApi(path) {
+      const res = await fetch(API + path);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'API error');
+      return json.data;
+    }
+
+    async function postApi(path, body) {
+      const res = await fetch(API + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'API error');
+      return json.data;
+    }
+
+    // =========================================================================
+    // Navigation
+    // =========================================================================
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        item.classList.add('active');
+
+        const section = item.dataset.section;
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.getElementById('sec-' + section).classList.add('active');
+      });
+    });
+
+    // =========================================================================
+    // Color helpers
+    // =========================================================================
+    function scoreColor(score) {
+      if (score >= 70) return '#34d399';
+      if (score >= 50) return '#fbbf24';
+      if (score >= 30) return '#fb923c';
+      return '#f87171';
+    }
+
+    function fraudColor(score) {
+      if (score >= 50) return '#f87171';
+      if (score >= 30) return '#fb923c';
+      if (score >= 15) return '#fbbf24';
+      return '#34d399';
+    }
+
+    // =========================================================================
+    // Data loading & rendering
+    // =========================================================================
+    let vendorRankings = [];
+    let allVendors = [];
+    let topTier = [];
+    let healthData = {};
+    let budgetPlan = null;
+    let experiments = [];
+
+    async function loadAll() {
+      try {
+        [healthData, vendorRankings, topTier, allVendors, experiments] = await Promise.all([
+          fetchApi('/health'),
+          fetchApi('/vendors/ranking/all'),
+          fetchApi('/vendors/top-tier/all'),
+          fetchApi('/vendors'),
+          fetchApi('/experiments'),
+        ]);
+
+        const vendorIds = allVendors.map(v => v.id);
+        const campaignId = experiments.length > 0
+          ? experiments[0].campaignId
+          : allVendors.length > 0 ? 'default' : '';
+
+        if (vendorIds.length > 0) {
+          budgetPlan = await postApi('/recommendations/plan', {
+            campaignId,
+            vendorIds,
+            totalBudget: 5000,
+          });
+        }
+
+        renderOverview();
+        renderVendors();
+        renderFraud();
+        renderExperiments();
+        renderBudget();
+        renderThompson();
+      } catch (err) {
+        console.error('Failed to load data:', err);
+      }
+    }
+
+    // ---- Overview ----
+    function renderOverview() {
+      const stats = healthData.stats || {};
+      const flagged = vendorRankings.filter(v => v.fraudRiskScore > 50).length;
+      const avgScore = vendorRankings.length > 0
+        ? Math.round(vendorRankings.reduce((s, v) => s + v.compositeScore, 0) / vendorRankings.length)
+        : 0;
+
+      document.getElementById('metrics-grid').innerHTML = `
+        <div class="card">
+          <div class="metric-value">${stats.vendors || 0}</div>
+          <div class="metric-label">Active Vendors</div>
+          <div class="metric-badge badge-blue">${topTier.length} top tier</div>
+        </div>
+        <div class="card">
+          <div class="metric-value">${(stats.trafficEvents || 0).toLocaleString()}</div>
+          <div class="metric-label">Traffic Events Processed</div>
+          <div class="metric-badge badge-green">Last 24h</div>
+        </div>
+        <div class="card">
+          <div class="metric-value">${avgScore}</div>
+          <div class="metric-label">Avg Quality Score</div>
+          <div class="metric-badge ${avgScore >= 60 ? 'badge-green' : 'badge-yellow'}">${avgScore >= 60 ? 'Healthy' : 'Needs attention'}</div>
+        </div>
+        <div class="card">
+          <div class="metric-value">${flagged}</div>
+          <div class="metric-label">Vendors Flagged</div>
+          <div class="metric-badge ${flagged > 0 ? 'badge-red' : 'badge-green'}">${flagged > 0 ? 'Action needed' : 'All clear'}</div>
+        </div>
+      `;
+
+      // Quality distribution chart
+      const qualityBuckets = [0, 0, 0, 0];
+      vendorRankings.forEach(v => {
+        if (v.compositeScore >= 70) qualityBuckets[0]++;
+        else if (v.compositeScore >= 50) qualityBuckets[1]++;
+        else if (v.compositeScore >= 30) qualityBuckets[2]++;
+        else qualityBuckets[3]++;
+      });
+
+      new Chart(document.getElementById('chart-quality-dist'), {
+        type: 'doughnut',
+        data: {
+          labels: ['High (70+)', 'Medium (50-69)', 'Low (30-49)', 'Critical (<30)'],
+          datasets: [{
+            data: qualityBuckets,
+            backgroundColor: ['#34d399', '#fbbf24', '#fb923c', '#f87171'],
+            borderColor: '#1a1d27',
+            borderWidth: 3,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#8b90a0', font: { size: 11 } } },
+          },
+        },
+      });
+
+      // Fraud overview radar
+      const fraudData = vendorRankings.slice(0, 5).map(v => ({ name: v.vendorName, score: v.fraudRiskScore }));
+      new Chart(document.getElementById('chart-fraud-overview'), {
+        type: 'radar',
+        data: {
+          labels: fraudData.map(d => d.name),
+          datasets: [{
+            label: 'Fraud Risk',
+            data: fraudData.map(d => d.score),
+            backgroundColor: 'rgba(248, 113, 113, 0.15)',
+            borderColor: '#f87171',
+            borderWidth: 2,
+            pointBackgroundColor: fraudData.map(d => fraudColor(d.score)),
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            r: {
+              beginAtZero: true,
+              max: 100,
+              ticks: { color: '#8b90a0', backdropColor: 'transparent', font: { size: 10 } },
+              grid: { color: '#2e3344' },
+              pointLabels: { color: '#8b90a0', font: { size: 10 } },
+            },
+          },
+          plugins: { legend: { display: false } },
+        },
+      });
+
+      // Action items
+      if (budgetPlan && budgetPlan.flaggedVendorIds.length > 0) {
+        const flaggedRecs = budgetPlan.allocations.filter(a => a.action === 'pause' || a.action === 'review' || a.compositeScore < 50);
+        let html = '';
+        flaggedRecs.forEach(rec => {
+          const vendor = allVendors.find(v => v.id === rec.vendorId);
+          const priority = rec.action === 'pause' ? 'critical' : rec.compositeScore < 40 ? 'high' : 'medium';
+          html += `
+            <div class="action-item ${priority}">
+              <span class="action-priority" style="color: var(--${priority === 'critical' ? 'red' : priority === 'high' ? 'orange' : 'yellow'})">${priority.toUpperCase()}</span>
+              <div>
+                <div class="action-vendor">${vendor ? vendor.name : rec.vendorId.slice(0,8)}</div>
+                <div class="action-text">${rec.reason}</div>
+              </div>
+            </div>
+          `;
+        });
+        document.getElementById('action-items-list').innerHTML = html || '<p style="color:var(--text-dim);font-size:13px;">No action items at this time.</p>';
+      } else {
+        document.getElementById('action-items-list').innerHTML = '<p style="color:var(--green);font-size:13px;">✓ All vendors operating within acceptable parameters.</p>';
+      }
+    }
+
+    // ---- Vendors ----
+    function renderVendors() {
+      // Bar chart
+      new Chart(document.getElementById('chart-vendor-ranking'), {
+        type: 'bar',
+        data: {
+          labels: vendorRankings.map(v => v.vendorName),
+          datasets: [
+            {
+              label: 'Composite Score',
+              data: vendorRankings.map(v => v.compositeScore),
+              backgroundColor: vendorRankings.map(v => scoreColor(v.compositeScore)),
+              borderRadius: 6,
+              barPercentage: 0.7,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          scales: {
+            x: { max: 100, grid: { color: '#2e3344' }, ticks: { color: '#8b90a0' } },
+            y: { grid: { display: false }, ticks: { color: '#e1e4ed', font: { size: 11 } } },
+          },
+          plugins: { legend: { display: false } },
+        },
+      });
+
+      // Table
+      let html = '';
+      vendorRankings.forEach((v, i) => {
+        html += `<tr>
+          <td style="font-weight:700;color:var(--accent-light)">#${v.rank}</td>
+          <td style="font-weight:600">${v.vendorName}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="score-bar"><div class="score-bar-fill" style="width:${v.compositeScore}%;background:${scoreColor(v.compositeScore)}"></div></div>
+              <span style="font-weight:700">${v.compositeScore}</span>
+            </div>
+          </td>
+          <td>${v.engagementScore}</td>
+          <td style="color:${fraudColor(v.fraudRiskScore)};font-weight:600">${v.fraudRiskScore}</td>
+          <td>
+            <div class="confidence-bar"><div class="confidence-fill" style="width:${v.confidence * 100}%"></div></div>
+            ${(v.confidence * 100).toFixed(0)}%
+          </td>
+          <td>${v.sampleSize.toLocaleString()}</td>
+        </tr>`;
+      });
+      document.getElementById('vendor-table-body').innerHTML = html;
+
+      // Top tier
+      let topHtml = '<div class="grid grid-2" style="gap:12px;">';
+      topTier.forEach(v => {
+        topHtml += `
+          <div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--green-bg);border-radius:8px;border:1px solid rgba(52,211,153,0.2);">
+            <div style="font-size:28px;">⭐</div>
+            <div>
+              <div style="font-weight:700;font-size:14px;">${v.vendorName}</div>
+              <div style="font-size:12px;color:var(--green);margin-top:2px;">Composite: ${v.compositeScore} · Confidence: ${(v.confidence * 100).toFixed(0)}%</div>
+            </div>
+          </div>
+        `;
+      });
+      topHtml += '</div>';
+      document.getElementById('top-tier-list').innerHTML = topHtml;
+    }
+
+    // ---- Fraud ----
+    function renderFraud() {
+      const highRisk = vendorRankings.filter(v => v.fraudRiskScore > 50);
+      const medRisk = vendorRankings.filter(v => v.fraudRiskScore > 20 && v.fraudRiskScore <= 50);
+      const lowRisk = vendorRankings.filter(v => v.fraudRiskScore <= 20);
+
+      document.getElementById('fraud-metrics').innerHTML = `
+        <div class="card" style="border-left:4px solid var(--red);">
+          <div class="card-title">High Risk Vendors</div>
+          <div class="metric-value" style="color:var(--red)">${highRisk.length}</div>
+          <div class="metric-label">${highRisk.map(v => v.vendorName).join(', ') || 'None'}</div>
+        </div>
+        <div class="card" style="border-left:4px solid var(--yellow);">
+          <div class="card-title">Medium Risk Vendors</div>
+          <div class="metric-value" style="color:var(--yellow)">${medRisk.length}</div>
+          <div class="metric-label">${medRisk.map(v => v.vendorName).join(', ') || 'None'}</div>
+        </div>
+        <div class="card" style="border-left:4px solid var(--green);">
+          <div class="card-title">Low Risk Vendors</div>
+          <div class="metric-value" style="color:var(--green)">${lowRisk.length}</div>
+          <div class="metric-label">${lowRisk.map(v => v.vendorName).join(', ') || 'None'}</div>
+        </div>
+      `;
+
+      // Fraud bar chart
+      const sorted = [...vendorRankings].sort((a, b) => b.fraudRiskScore - a.fraudRiskScore);
+      new Chart(document.getElementById('chart-fraud-bar'), {
+        type: 'bar',
+        data: {
+          labels: sorted.map(v => v.vendorName),
+          datasets: [{
+            label: 'Fraud Risk Score',
+            data: sorted.map(v => v.fraudRiskScore),
+            backgroundColor: sorted.map(v => fraudColor(v.fraudRiskScore)),
+            borderRadius: 6,
+            barPercentage: 0.65,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { max: 100, grid: { color: '#2e3344' }, ticks: { color: '#8b90a0' } },
+            x: { grid: { display: false }, ticks: { color: '#e1e4ed', font: { size: 10 }, maxRotation: 45 } },
+          },
+          plugins: {
+            legend: { display: false },
+            annotation: {
+              annotations: {
+                line1: { type: 'line', yMin: 50, yMax: 50, borderColor: '#f87171', borderWidth: 2, borderDash: [6, 3] },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    // ---- Experiments ----
+    async function renderExperiments() {
+      if (experiments.length === 0) {
+        document.getElementById('experiment-list').innerHTML = '<p style="color:var(--text-dim)">No experiments found.</p>';
+        return;
+      }
+
+      let html = '';
+      const expResults = [];
+
+      for (const exp of experiments) {
+        const statusClass = 'status-' + exp.status;
+        html += `
+          <div class="exp-card">
+            <div class="exp-header">
+              <span class="exp-name">${exp.name}</span>
+              <span class="exp-status ${statusClass}">${exp.status}</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-dim);">
+              Campaign: ${exp.campaignId.slice(0,8)}… · Vendors: ${exp.vendorIds.length} · 
+              Traffic allocation: ${exp.trafficAllocationPercent}% · Min sample: ${exp.minSampleSize}
+            </div>
+          </div>
+        `;
+
+        try {
+          const analysis = await fetchApi('/experiments/' + exp.id + '/results');
+          expResults.push(analysis);
+        } catch(e) { /* ignore */ }
+      }
+
+      document.getElementById('experiment-list').innerHTML = html;
+
+      // Experiment results chart
+      if (expResults.length > 0) {
+        const results = expResults[0].results;
+        const vendorIds = Object.keys(results);
+        const labels = vendorIds.map(id => {
+          const v = allVendors.find(v => v.id === id);
+          return v ? v.name : id.slice(0,8);
+        });
+
+        new Chart(document.getElementById('chart-experiment'), {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'Engagement Score',
+                data: vendorIds.map(id => results[id].engagementScore),
+                backgroundColor: '#6c63ff',
+                borderRadius: 6,
+                barPercentage: 0.35,
+              },
+              {
+                label: 'Fraud Risk',
+                data: vendorIds.map(id => results[id].fraudRiskScore),
+                backgroundColor: '#f87171',
+                borderRadius: 6,
+                barPercentage: 0.35,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { max: 100, grid: { color: '#2e3344' }, ticks: { color: '#8b90a0' } },
+              x: { grid: { display: false }, ticks: { color: '#e1e4ed', font: { size: 11 } } },
+            },
+            plugins: { legend: { position: 'top', labels: { color: '#8b90a0', font: { size: 11 } } } },
+          },
+        });
+      }
+    }
+
+    // ---- Budget ----
+    function renderBudget() {
+      if (!budgetPlan) return;
+
+      const allocs = budgetPlan.allocations;
+
+      // Donut chart
+      new Chart(document.getElementById('chart-budget-donut'), {
+        type: 'doughnut',
+        data: {
+          labels: allocs.map(a => {
+            const v = allVendors.find(v => v.id === a.vendorId);
+            return v ? v.name : a.vendorId.slice(0,8);
+          }),
+          datasets: [{
+            data: allocs.map(a => a.recommendedAllocationPercent),
+            backgroundColor: [
+              '#6c63ff', '#34d399', '#60a5fa', '#fbbf24', '#a78bfa',
+              '#fb923c', '#f87171', '#8b5cf6', '#ec4899', '#14b8a6',
+            ],
+            borderColor: '#1a1d27',
+            borderWidth: 3,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right', labels: { color: '#8b90a0', font: { size: 10 }, boxWidth: 12 } },
+          },
+        },
+      });
+
+      // Comparison chart
+      new Chart(document.getElementById('chart-budget-compare'), {
+        type: 'bar',
+        data: {
+          labels: allocs.map(a => {
+            const v = allVendors.find(v => v.id === a.vendorId);
+            return v ? v.name : a.vendorId.slice(0,8);
+          }),
+          datasets: [
+            {
+              label: 'Current %',
+              data: allocs.map(a => a.currentAllocationPercent),
+              backgroundColor: '#3b3f54',
+              borderRadius: 4,
+              barPercentage: 0.4,
+            },
+            {
+              label: 'Recommended %',
+              data: allocs.map(a => a.recommendedAllocationPercent),
+              backgroundColor: allocs.map(a => {
+                if (a.action === 'increase') return '#34d399';
+                if (a.action === 'pause') return '#f87171';
+                if (a.action === 'decrease') return '#fbbf24';
+                return '#60a5fa';
+              }),
+              borderRadius: 4,
+              barPercentage: 0.4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { grid: { color: '#2e3344' }, ticks: { color: '#8b90a0', callback: v => v + '%' } },
+            x: { grid: { display: false }, ticks: { color: '#e1e4ed', font: { size: 9 }, maxRotation: 45 } },
+          },
+          plugins: { legend: { position: 'top', labels: { color: '#8b90a0', font: { size: 11 } } } },
+        },
+      });
+
+      // Budget table
+      const actionIcons = { increase: '↑', maintain: '=', decrease: '↓', pause: '⏸', review: '⚠' };
+      let html = '';
+      allocs.forEach(a => {
+        const vendor = allVendors.find(v => v.id === a.vendorId);
+        html += `<tr>
+          <td style="font-weight:600">${vendor ? vendor.name : a.vendorId.slice(0,8)}</td>
+          <td><span class="rec-action rec-${a.action}">${actionIcons[a.action] || ''} ${a.action}</span></td>
+          <td style="font-weight:700;color:${scoreColor(a.compositeScore)}">${a.compositeScore}</td>
+          <td>${a.currentAllocationPercent}%</td>
+          <td style="font-weight:700">${a.recommendedAllocationPercent}%</td>
+          <td>
+            <div class="confidence-bar"><div class="confidence-fill" style="width:${a.confidence * 100}%"></div></div>
+            ${(a.confidence * 100).toFixed(0)}%
+          </td>
+          <td style="font-size:11px;color:var(--text-dim);max-width:300px;">${a.reason}</td>
+        </tr>`;
+      });
+      document.getElementById('budget-table-body').innerHTML = html;
+    }
+
+    // ---- Thompson Sampling ----
+    async function renderThompson() {
+      try {
+        const vendorIds = allVendors.map(v => v.id);
+        const allocations = await postApi('/allocations/compute', { vendorIds });
+
+        allocations.sort((a, b) => b.weight - a.weight);
+
+        new Chart(document.getElementById('chart-thompson'), {
+          type: 'bar',
+          data: {
+            labels: allocations.map(a => {
+              const v = allVendors.find(v => v.id === a.vendorId);
+              return v ? v.name : a.vendorId.slice(0, 8);
+            }),
+            datasets: [
+              {
+                label: 'Allocation Weight',
+                data: allocations.map(a => +(a.weight * 100).toFixed(1)),
+                backgroundColor: '#6c63ff',
+                borderRadius: 6,
+                barPercentage: 0.6,
+              },
+              {
+                label: 'Exploration Bonus',
+                data: allocations.map(a => +(a.explorationBonus * 100).toFixed(1)),
+                backgroundColor: '#a78bfa',
+                borderRadius: 6,
+                barPercentage: 0.6,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { grid: { color: '#2e3344' }, ticks: { color: '#8b90a0', callback: v => v + '%' } },
+              x: { grid: { display: false }, ticks: { color: '#e1e4ed', font: { size: 10 }, maxRotation: 45 } },
+            },
+            plugins: { legend: { position: 'top', labels: { color: '#8b90a0', font: { size: 11 } } } },
+          },
+        });
+      } catch (e) {
+        console.error('Thompson chart error:', e);
+      }
+    }
+
+    // =========================================================================
+    // Init
+    // =========================================================================
+    loadAll();
+  </script>
+</body>
+</html>
